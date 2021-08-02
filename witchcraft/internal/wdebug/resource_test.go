@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -29,11 +30,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var (
+	customDiagnosticType = DiagnosticType("my.custom.diagnostic")
+	customHandlers       = map[DiagnosticType]DiagnosticHandler{
+		customDiagnosticType: customHandler{},
+	}
+	customHandlerOutput = "Hello World!"
+)
+
 func TestDebugResource(t *testing.T) {
 	ctx := context.Background()
 	r := wrouter.New(whttprouter.New())
 	secret := refreshable.NewDefaultRefreshable("secret1")
-	err := RegisterRoute(r, refreshable.NewString(secret))
+	err := RegisterRoute(r, customHandlers, refreshable.NewString(secret))
 	require.NoError(t, err)
 
 	server := httptest.NewServer(r)
@@ -66,6 +75,17 @@ func TestDebugResource(t *testing.T) {
 				require.NotEmpty(t, body.Bytes())
 			},
 		},
+		{
+			DiagnosticType: customDiagnosticType,
+			Verify: func(t *testing.T, resp *http.Response) {
+				require.Equal(t, 200, resp.StatusCode)
+				require.Equal(t, "text/plain", resp.Header.Get("Content-Type"))
+				require.Equal(t, "true", resp.Header.Get("Safe-Loggable"))
+				var body string
+				require.NoError(t, codecs.Plain.Decode(resp.Body, &body))
+				require.Equal(t, customHandlerOutput, body)
+			},
+		},
 	} {
 		t.Run(string(test.DiagnosticType), func(t *testing.T) {
 			req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/debug/diagnostic/%s", server.URL, test.DiagnosticType), nil)
@@ -76,4 +96,30 @@ func TestDebugResource(t *testing.T) {
 			test.Verify(t, resp)
 		})
 	}
+}
+
+type customHandler struct{}
+
+func (h customHandler) Type() DiagnosticType {
+	return customDiagnosticType
+}
+
+func (h customHandler) Documentation() string {
+	return "This is a custom handler used for testing only"
+}
+
+func (h customHandler) ContentType() string {
+	return codecs.Plain.ContentType()
+}
+
+func (h customHandler) SafeLoggable() bool {
+	return true
+}
+
+func (h customHandler) Extension() string {
+	return "txt"
+}
+
+func (h customHandler) WriteDiagnostic(_ context.Context, w io.Writer) error {
+	return codecs.Plain.Encode(w, customHandlerOutput)
 }

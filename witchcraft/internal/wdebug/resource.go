@@ -34,11 +34,15 @@ const (
 type DiagnosticType string
 
 type debugResource struct {
-	SharedSecret refreshable.String
+	CustomHandlers map[DiagnosticType]DiagnosticHandler
+	SharedSecret   refreshable.String
 }
 
-func RegisterRoute(router wrouter.Router, sharedSecret refreshable.String) error {
-	r := &debugResource{SharedSecret: sharedSecret}
+func RegisterRoute(router wrouter.Router, customHandlers map[DiagnosticType]DiagnosticHandler, sharedSecret refreshable.String) error {
+	r := &debugResource{
+		SharedSecret:   sharedSecret,
+		CustomHandlers: customHandlers,
+	}
 	if err := wresource.New("witchcraftdebugservice", router).
 		Get("GetDiagnostic", "/debug/diagnostic/{diagnosticType}",
 			httpserver.NewJSONHandler(r.ServeHTTP, httpserver.StatusCodeMapper, httpserver.ErrHandler),
@@ -69,6 +73,10 @@ func (r *debugResource) ServeHTTP(rw http.ResponseWriter, req *http.Request) err
 	diagnosticType := DiagnosticType(diagnosticTypeStr)
 
 	handler, ok := diagnosticHandlers[diagnosticType]
+	if !ok && r.CustomHandlers != nil {
+		// Custom handlers are only used for types which are not found in the default handlers
+		handler, ok = r.CustomHandlers[diagnosticType]
+	}
 	if !ok {
 		return errors.WrapWithInvalidArgument(werror.ErrorWithContextParams(ctx, "unsupported diagnosticType", werror.SafeParam("diagnosticType", diagnosticType)))
 	}

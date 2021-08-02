@@ -49,7 +49,7 @@ func (s *Server) addRoutes(mgmtRouterWithContextPath wrouter.Router, runtimeCfg 
 	if err := addPprofRoutes(mgmtRouterWithContextPath); err != nil {
 		return werror.Wrap(err, "failed to register debugging routes")
 	}
-	if err := wdebug.RegisterRoute(mgmtRouterWithContextPath, refreshable.NewString(runtimeCfg.Map(func(in interface{}) interface{} {
+	if err := wdebug.RegisterRoute(mgmtRouterWithContextPath, s.customDiagnosticHandlers, refreshable.NewString(runtimeCfg.Map(func(in interface{}) interface{} {
 		return in.(config.Runtime).DiagnosticsConfig.DebugSharedSecret
 	}))); err != nil {
 		return err

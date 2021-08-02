@@ -53,6 +53,7 @@ import (
 	"github.com/palantir/witchcraft-go-server/v2/config"
 	"github.com/palantir/witchcraft-go-server/v2/status"
 	refreshablehealth "github.com/palantir/witchcraft-go-server/v2/witchcraft/internal/refreshable"
+	"github.com/palantir/witchcraft-go-server/v2/witchcraft/internal/wdebug"
 	refreshablefile "github.com/palantir/witchcraft-go-server/v2/witchcraft/refreshable"
 	"github.com/palantir/witchcraft-go-server/v2/wrouter"
 	"github.com/palantir/witchcraft-go-server/v2/wrouter/whttprouter"
@@ -117,6 +118,11 @@ type Server struct {
 
 	// specifies the handlers to invoke upon health status changes. The LoggingHealthStatusChangeHandler is added by default.
 	healthStatusChangeHandlers []status.HealthStatusChangeHandler
+
+	// specifies a map of custom diagnostic types their associated handlers. Custom diagnostic handlers are not allowed to
+	// override the default handlers - i.e. if a custom diagnostic type is equal to a default type, the default handler
+	// will still be used.
+	customDiagnosticHandlers map[wdebug.DiagnosticType]wdebug.DiagnosticHandler
 
 	// provides the RouterImpl used by the server (and management server if it is separate). If nil, a default function
 	// that returns a new whttprouter is used.
@@ -519,6 +525,13 @@ func (s *Server) WithLoggerStdoutWriter(loggerStdoutWriter io.Writer) *Server {
 // returns a health status with differing check states.
 func (s *Server) WithHealthStatusChangeHandlers(handlers ...status.HealthStatusChangeHandler) *Server {
 	s.healthStatusChangeHandlers = append(s.healthStatusChangeHandlers, handlers...)
+	return s
+}
+
+// WithCustomDiagnosticHandlers adds an optional set of diagnostic handlers to allow calling the /debug/diagnostic/{diagnosticType}
+// endpoint with a custom type. It replaces the value set on any previous call.
+func (s *Server) WithCustomDiagnosticHandlers(handlers map[wdebug.DiagnosticType]wdebug.DiagnosticHandler) *Server {
+	s.customDiagnosticHandlers = handlers
 	return s
 }
 
