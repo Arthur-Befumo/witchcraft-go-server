@@ -257,6 +257,7 @@ type ConfigurableRouter interface {
 	WithHealth(healthSources ...healthstatus.HealthCheckSource) *Server
 	WithReadiness(readiness healthstatus.Source) *Server
 	WithLiveness(liveness healthstatus.Source) *Server
+	WithCustomDiagnosticHandlers(handlers map[wdebug.DiagnosticType]wdebug.DiagnosticHandler) *Server
 }
 
 const defaultSampleRate = 0.01
